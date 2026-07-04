@@ -1197,6 +1197,7 @@ public class RequestHandler {
             } catch (IOException e) {
                 ctx.status(500);
                 ctx.result("Unable to read saved images");
+                return;
             }
         }
 
@@ -1211,8 +1212,8 @@ public class RequestHandler {
 
             var cameraDirs = ConfigManager.getInstance().getCalibDir().toFile().listFiles();
             if (cameraDirs != null) {
-                var camData = new HashMap<String, ArrayList<HashMap<String, Object>>>();
                 for (var cameraDir : cameraDirs) {
+                    var camData = new HashMap<String, ArrayList<HashMap<String, Object>>>();
                     var resolutionDirs = cameraDir.listFiles();
                     if (resolutionDirs == null) continue;
                     for (var resolutionDir : resolutionDirs) {
