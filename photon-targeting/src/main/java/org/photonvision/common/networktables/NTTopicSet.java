@@ -82,12 +82,14 @@ public class NTTopicSet {
     public DoubleArrayPublisher cameraDistortionPublisher;
 
     public void updateEntries() {
+        // 5ms is ntcore's minimum transmit period; asking for it means results are
+        // sent at the earliest opportunity without needing a flush() per frame.
         var rawBytesEntry =
                 subTable
                         .getRawTopic("rawBytes")
                         .publish(
                                 PhotonPipelineResult.photonStruct.getTypeString(),
-                                PubSubOption.periodic(0.01),
+                                PubSubOption.periodic(0.005),
                                 PubSubOption.SEND_ALL,
                                 PubSubOption.KEEP_DUPLICATES);
 
@@ -96,7 +98,7 @@ public class NTTopicSet {
         protoResultPublisher =
                 subTable
                         .getProtobufTopic("result_proto", PhotonPipelineResult.proto)
-                        .publish(PubSubOption.periodic(0.01), PubSubOption.SEND_ALL);
+                        .publish(PubSubOption.periodic(0.005), PubSubOption.SEND_ALL);
 
         pipelineIndexPublisher = subTable.getIntegerTopic("pipelineIndexState").publish();
         pipelineIndexRequestSub = subTable.getIntegerTopic("pipelineIndexRequest").subscribe(0);

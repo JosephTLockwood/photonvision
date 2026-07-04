@@ -265,8 +265,5 @@ public class NTDataPublisher implements CVPipelineResultConsumer {
         }
 
         ts.heartbeatPublisher.set(acceptedResult.sequenceID);
-
-        // TODO...nt4... is this needed?
-        rootTable.getInstance().flush();
     }
 }
