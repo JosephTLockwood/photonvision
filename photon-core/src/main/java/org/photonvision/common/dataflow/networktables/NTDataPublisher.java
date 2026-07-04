@@ -156,6 +156,8 @@ public class NTDataPublisher implements CVPipelineResultConsumer {
         if (driverModeListener != null) driverModeListener.remove();
         if (fpsLimitListener != null) fpsLimitListener.remove();
 
+        ts.sendAllResults =
+                ConfigManager.getInstance().getConfig().getNetworkConfig().publishAllResults;
         ts.updateEntries();
 
         pipelineIndexListener =

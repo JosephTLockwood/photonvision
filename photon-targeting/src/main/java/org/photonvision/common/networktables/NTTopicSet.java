@@ -44,6 +44,15 @@ import org.wpilib.networktables.StructPublisher;
 public class NTTopicSet {
     public NetworkTable subTable;
 
+    // When true, results are published SEND_ALL + KEEP_DUPLICATES: every result
+    // reaches the NT server even if several queue up between transmits or a
+    // stalled connection backs them up. When false, only the newest result
+    // survives a transmit window -- lossless below 200fps (the 5ms minimum
+    // transmit period), and a stall drops backlog instead of bursting it.
+    // Defaults to true to keep photonlib simulation lossless; the coprocessor
+    // overrides this from NetworkConfig.publishAllResults.
+    public boolean sendAllResults = true;
+
     public PacketPublisher<PhotonPipelineResult> resultPublisher;
     public ProtobufPublisher<PhotonPipelineResult> protoResultPublisher;
 
@@ -84,21 +93,26 @@ public class NTTopicSet {
     public void updateEntries() {
         // 5ms is ntcore's minimum transmit period; asking for it means results are
         // sent at the earliest opportunity without needing a flush() per frame.
+        PubSubOption[] resultPubOptions =
+                sendAllResults
+                        ? new PubSubOption[] {
+                            PubSubOption.periodic(0.005),
+                            PubSubOption.SEND_ALL,
+                            PubSubOption.KEEP_DUPLICATES
+                        }
+                        : new PubSubOption[] {PubSubOption.periodic(0.005)};
+
         var rawBytesEntry =
                 subTable
                         .getRawTopic("rawBytes")
-                        .publish(
-                                PhotonPipelineResult.photonStruct.getTypeString(),
-                                PubSubOption.periodic(0.005),
-                                PubSubOption.SEND_ALL,
-                                PubSubOption.KEEP_DUPLICATES);
+                        .publish(PhotonPipelineResult.photonStruct.getTypeString(), resultPubOptions);
 
         resultPublisher =
                 new PacketPublisher<PhotonPipelineResult>(rawBytesEntry, PhotonPipelineResult.photonStruct);
         protoResultPublisher =
                 subTable
                         .getProtobufTopic("result_proto", PhotonPipelineResult.proto)
-                        .publish(PubSubOption.periodic(0.005), PubSubOption.SEND_ALL);
+                        .publish(resultPubOptions);
 
         pipelineIndexPublisher = subTable.getIntegerTopic("pipelineIndexState").publish();
         pipelineIndexRequestSub = subTable.getIntegerTopic("pipelineIndexRequest").subscribe(0);
