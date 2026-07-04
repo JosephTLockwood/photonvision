@@ -219,6 +219,7 @@ public class NTDataPublisher implements CVPipelineResultConsumer {
         // random guess at size of the array
         ts.resultPublisher.set(simplified, 1024);
         if (ConfigManager.getInstance().getConfig().getNetworkConfig().shouldPublishProto) {
+            ts.ensureProtoResultPublisher();
             ts.protoResultPublisher.set(simplified);
         }
 

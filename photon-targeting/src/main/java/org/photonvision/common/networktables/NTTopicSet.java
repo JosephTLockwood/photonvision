@@ -90,29 +90,38 @@ public class NTTopicSet {
     public DoubleArrayPublisher cameraIntrinsicsPublisher;
     public DoubleArrayPublisher cameraDistortionPublisher;
 
-    public void updateEntries() {
+    private PubSubOption[] resultPubOptions() {
         // 5ms is ntcore's minimum transmit period; asking for it means results are
         // sent at the earliest opportunity without needing a flush() per frame.
-        PubSubOption[] resultPubOptions =
-                sendAllResults
-                        ? new PubSubOption[] {
-                            PubSubOption.periodic(0.005),
-                            PubSubOption.SEND_ALL,
-                            PubSubOption.KEEP_DUPLICATES
-                        }
-                        : new PubSubOption[] {PubSubOption.periodic(0.005)};
+        return sendAllResults
+                ? new PubSubOption[] {
+                    PubSubOption.periodic(0.005), PubSubOption.SEND_ALL, PubSubOption.KEEP_DUPLICATES
+                }
+                : new PubSubOption[] {PubSubOption.periodic(0.005)};
+    }
 
+    /**
+     * result_proto duplicates rawBytes in a dashboard-friendly encoding and is opt-in
+     * (NetworkConfig.shouldPublishProto); the publisher is only created once a caller actually wants
+     * to publish it.
+     */
+    public void ensureProtoResultPublisher() {
+        if (protoResultPublisher == null) {
+            protoResultPublisher =
+                    subTable
+                            .getProtobufTopic("result_proto", PhotonPipelineResult.proto)
+                            .publish(resultPubOptions());
+        }
+    }
+
+    public void updateEntries() {
         var rawBytesEntry =
                 subTable
                         .getRawTopic("rawBytes")
-                        .publish(PhotonPipelineResult.photonStruct.getTypeString(), resultPubOptions);
+                        .publish(PhotonPipelineResult.photonStruct.getTypeString(), resultPubOptions());
 
         resultPublisher =
                 new PacketPublisher<PhotonPipelineResult>(rawBytesEntry, PhotonPipelineResult.photonStruct);
-        protoResultPublisher =
-                subTable
-                        .getProtobufTopic("result_proto", PhotonPipelineResult.proto)
-                        .publish(resultPubOptions);
 
         pipelineIndexPublisher = subTable.getIntegerTopic("pipelineIndexState").publish();
         pipelineIndexRequestSub = subTable.getIntegerTopic("pipelineIndexRequest").subscribe(0);
@@ -156,6 +165,11 @@ public class NTTopicSet {
     @SuppressWarnings("DuplicatedCode")
     public void removeEntries() {
         if (resultPublisher != null) resultPublisher.close();
+        if (protoResultPublisher != null) {
+            protoResultPublisher.close();
+            // ensureProtoResultPublisher() must recreate this against the new subTable
+            protoResultPublisher = null;
+        }
         if (pipelineIndexPublisher != null) pipelineIndexPublisher.close();
         if (pipelineIndexRequestSub != null) pipelineIndexRequestSub.close();
 
