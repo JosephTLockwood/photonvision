@@ -206,7 +206,8 @@ public class VisionRunner {
                 var hsvParams =
                         new HSVPipe.HSVParams(
                                 advanced.hsvHue, advanced.hsvSaturation, advanced.hsvValue, advanced.hueInverted);
-                // TODO who should deal with preventing this from happening _every single loop_?
+                // Providers for whom this is expensive (libcamera JNI) dedup unchanged
+                // settings internally, keyed on their native camera instance
                 frameSupplier.requestHsvSettings(hsvParams);
             }
             frameSupplier.requestFrameRotation(settings.inputImageRotationMode);
