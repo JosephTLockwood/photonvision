@@ -35,6 +35,12 @@ public class NetworkConfig {
     public boolean shouldManage;
     public boolean shouldPublishProto = false;
 
+    // Publish every pipeline result to the NT server (SEND_ALL + KEEP_DUPLICATES).
+    // On by default so photonlib's getAllUnreadResults() receives every frame. Set
+    // false to send only the newest result per NT cycle, cutting traffic on setups
+    // that produce results faster than the ~200fps NT publish rate.
+    public boolean publishAllResults = true;
+
     public static final String NM_IFACE_STRING = "${interface}";
     public static final String NM_IP_STRING = "${ipaddr}";
 
@@ -59,6 +65,7 @@ public class NetworkConfig {
             boolean runNTServer,
             boolean shouldManage,
             boolean shouldPublishProto,
+            boolean publishAllResults,
             String networkManagerIface,
             String setStaticCommand,
             String setDHCPcommand) {
@@ -68,6 +75,7 @@ public class NetworkConfig {
         this.hostname = hostname;
         this.runNTServer = runNTServer;
         this.shouldPublishProto = shouldPublishProto;
+        this.publishAllResults = publishAllResults;
         this.networkManagerIface = networkManagerIface;
         this.setStaticCommand = setStaticCommand;
         this.setDHCPcommand = setDHCPcommand;
@@ -83,6 +91,7 @@ public class NetworkConfig {
                 config.runNTServer,
                 config.shouldManage,
                 config.shouldPublishProto,
+                config.publishAllResults,
                 config.networkManagerIface,
                 config.setStaticCommand,
                 config.setDHCPcommand);
@@ -126,6 +135,8 @@ public class NetworkConfig {
                 + shouldManage
                 + ", shouldPublishProto="
                 + shouldPublishProto
+                + ", publishAllResults="
+                + publishAllResults
                 + "]";
     }
 }

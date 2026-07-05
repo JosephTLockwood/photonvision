@@ -156,6 +156,8 @@ public class NTDataPublisher implements CVPipelineResultConsumer {
         if (driverModeListener != null) driverModeListener.remove();
         if (fpsLimitListener != null) fpsLimitListener.remove();
 
+        ts.sendAllResults =
+                ConfigManager.getInstance().getConfig().getNetworkConfig().publishAllResults;
         ts.updateEntries();
 
         pipelineIndexListener =
@@ -217,6 +219,7 @@ public class NTDataPublisher implements CVPipelineResultConsumer {
         // random guess at size of the array
         ts.resultPublisher.set(simplified, 1024);
         if (ConfigManager.getInstance().getConfig().getNetworkConfig().shouldPublishProto) {
+            ts.ensureProtoResultPublisher();
             ts.protoResultPublisher.set(simplified);
         }
 
@@ -265,8 +268,5 @@ public class NTDataPublisher implements CVPipelineResultConsumer {
         }
 
         ts.heartbeatPublisher.set(acceptedResult.sequenceID);
-
-        // TODO...nt4... is this needed?
-        rootTable.getInstance().flush();
     }
 }

@@ -44,6 +44,15 @@ import org.wpilib.networktables.StructPublisher;
 public class NTTopicSet {
     public NetworkTable subTable;
 
+    // When true, results are published SEND_ALL + KEEP_DUPLICATES: every result
+    // reaches the NT server even if several queue up between transmits or a
+    // stalled connection backs them up. When false, only the newest result
+    // survives a transmit window -- lossless below 200fps (the 5ms minimum
+    // transmit period), and a stall drops backlog instead of bursting it.
+    // Defaults to true to keep photonlib simulation lossless; the coprocessor
+    // overrides this from NetworkConfig.publishAllResults.
+    public boolean sendAllResults = true;
+
     public PacketPublisher<PhotonPipelineResult> resultPublisher;
     public ProtobufPublisher<PhotonPipelineResult> protoResultPublisher;
 
@@ -81,22 +90,38 @@ public class NTTopicSet {
     public DoubleArrayPublisher cameraIntrinsicsPublisher;
     public DoubleArrayPublisher cameraDistortionPublisher;
 
+    private PubSubOption[] resultPubOptions() {
+        // 5ms is ntcore's minimum transmit period; asking for it means results are
+        // sent at the earliest opportunity without needing a flush() per frame.
+        return sendAllResults
+                ? new PubSubOption[] {
+                    PubSubOption.periodic(0.005), PubSubOption.SEND_ALL, PubSubOption.KEEP_DUPLICATES
+                }
+                : new PubSubOption[] {PubSubOption.periodic(0.005)};
+    }
+
+    /**
+     * result_proto duplicates rawBytes in a dashboard-friendly encoding and is opt-in
+     * (NetworkConfig.shouldPublishProto); the publisher is only created once a caller actually wants
+     * to publish it.
+     */
+    public void ensureProtoResultPublisher() {
+        if (protoResultPublisher == null) {
+            protoResultPublisher =
+                    subTable
+                            .getProtobufTopic("result_proto", PhotonPipelineResult.proto)
+                            .publish(resultPubOptions());
+        }
+    }
+
     public void updateEntries() {
         var rawBytesEntry =
                 subTable
                         .getRawTopic("rawBytes")
-                        .publish(
-                                PhotonPipelineResult.photonStruct.getTypeString(),
-                                PubSubOption.periodic(0.01),
-                                PubSubOption.SEND_ALL,
-                                PubSubOption.KEEP_DUPLICATES);
+                        .publish(PhotonPipelineResult.photonStruct.getTypeString(), resultPubOptions());
 
         resultPublisher =
                 new PacketPublisher<PhotonPipelineResult>(rawBytesEntry, PhotonPipelineResult.photonStruct);
-        protoResultPublisher =
-                subTable
-                        .getProtobufTopic("result_proto", PhotonPipelineResult.proto)
-                        .publish(PubSubOption.periodic(0.01), PubSubOption.SEND_ALL);
 
         pipelineIndexPublisher = subTable.getIntegerTopic("pipelineIndexState").publish();
         pipelineIndexRequestSub = subTable.getIntegerTopic("pipelineIndexRequest").subscribe(0);
@@ -140,6 +165,11 @@ public class NTTopicSet {
     @SuppressWarnings("DuplicatedCode")
     public void removeEntries() {
         if (resultPublisher != null) resultPublisher.close();
+        if (protoResultPublisher != null) {
+            protoResultPublisher.close();
+            // ensureProtoResultPublisher() must recreate this against the new subTable
+            protoResultPublisher = null;
+        }
         if (pipelineIndexPublisher != null) pipelineIndexPublisher.close();
         if (pipelineIndexRequestSub != null) pipelineIndexRequestSub.close();
 

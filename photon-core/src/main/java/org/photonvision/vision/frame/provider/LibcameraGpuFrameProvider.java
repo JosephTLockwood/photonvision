@@ -102,20 +102,44 @@ public class LibcameraGpuFrameProvider extends FrameProvider {
         }
     }
 
+    // The vision loop re-requests all of these every iteration, and each push is a
+    // JNI call. We can't just remember the last value: the native camera is
+    // destroyed and recreated on video mode changes and bad-frame recovery, which
+    // resets its settings. Key each cache on r_ptr so a recreated camera is
+    // re-configured on the next loop.
+    private long lastProcessTypeCamera = 0;
+    private FrameThresholdType lastProcessType = null;
+
+    private long lastHsvCamera = 0;
+    private HSVParams lastHsvParams = null;
+
+    private long lastFrameCopiesCamera = 0;
+    private boolean lastCopyInput;
+    private boolean lastCopyOutput;
+
     @Override
     public void requestFrameThresholdType(FrameThresholdType type) {
-        LibCameraJNI.setGpuProcessType(settables.r_ptr, type.ordinal());
+        var camera = settables.r_ptr;
+        if (camera == lastProcessTypeCamera && type == lastProcessType) return;
+
+        LibCameraJNI.setGpuProcessType(camera, type.ordinal());
+        lastProcessTypeCamera = camera;
+        lastProcessType = type;
     }
 
     @Override
     public void requestFrameRotation(ImageRotationMode rotationMode) {
+        // setRotation already no-ops on an unchanged rotation
         this.settables.setRotation(rotationMode);
     }
 
     @Override
     public void requestHsvSettings(HSVParams params) {
+        var camera = settables.r_ptr;
+        if (camera == lastHsvCamera && params.equals(lastHsvParams)) return;
+
         LibCameraJNI.setThresholds(
-                settables.r_ptr,
+                camera,
                 params.hsvLower().val[0] / 180.0,
                 params.hsvLower().val[1] / 255.0,
                 params.hsvLower().val[2] / 255.0,
@@ -123,11 +147,21 @@ public class LibcameraGpuFrameProvider extends FrameProvider {
                 params.hsvUpper().val[1] / 255.0,
                 params.hsvUpper().val[2] / 255.0,
                 params.hueInverted());
+        lastHsvCamera = camera;
+        lastHsvParams = params;
     }
 
     @Override
     public void requestFrameCopies(boolean copyInput, boolean copyOutput) {
-        LibCameraJNI.setFramesToCopy(settables.r_ptr, copyInput, copyOutput);
+        var camera = settables.r_ptr;
+        if (camera == lastFrameCopiesCamera
+                && copyInput == lastCopyInput
+                && copyOutput == lastCopyOutput) return;
+
+        LibCameraJNI.setFramesToCopy(camera, copyInput, copyOutput);
+        lastFrameCopiesCamera = camera;
+        lastCopyInput = copyInput;
+        lastCopyOutput = copyOutput;
     }
 
     @Override
