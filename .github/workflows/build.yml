@@ -642,8 +642,10 @@ jobs:
           exit "$failed"
 
   release:
-    # Require smoketest-native so that if those fail, we don't release broken artifacts
-    needs: [build-photonlib-vendorjson, build-image, combine, build-package-linux, build-package-macos, build-package-windows, run-smoketest-native]
+    # Require smoketest-native so that if those fail, we don't release broken artifacts.
+    # build-gradle and playwright-tests are required too so a main push with red unit
+    # or E2E tests can't publish a dev release.
+    needs: [build-gradle, playwright-tests, build-photonlib-vendorjson, build-image, combine, build-package-linux, build-package-macos, build-package-windows, run-smoketest-native]
     if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.repository == 'PhotonVision/photonvision'
     runs-on: ubuntu-24.04
     steps:
